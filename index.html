@@ -1,278 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Peptide / Supplement Logger</title>
-  <meta name="theme-color" content="#3b82f6" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#3b82f6">
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f6f7fb; color:#222; }
-    header { background:#3b82f6; color:#fff; padding:1rem; text-align:center; font-weight:700; }
-    .container { max-width:900px; margin:1.25rem auto; padding:1rem; background:#fff; border-radius:12px; box-shadow:0 2px 16px #0001; }
-    h3 { margin:0 0 .5rem 0; }
-
-    #buttonsPanel { display:flex; flex-wrap:wrap; gap:.5rem; margin:.5rem 0 1rem; }
-    #buttonsPanel button { padding:.7rem 1rem; border:none; border-radius:.6rem; background:#e0e7ff; color:#1e293b; cursor:pointer; }
+    header { background:#3b82f6; color:#fff; padding: 1em; text-align:center; }
+    .container { max-width:900px; margin:1em auto; padding:1em; background:#fff; box-shadow:0 2px 16px #0002; border-radius:1em; }
+    #buttonsPanel { display:flex; flex-wrap:wrap; gap:0.5em; margin-bottom:1em; }
+    #buttonsPanel button { padding:0.6em 1em; border:none; background:#e0e7ff; color:#1e293b; border-radius:0.6em; font-size:0.95em; cursor:pointer; transition:background 0.2s; }
     #buttonsPanel button:hover { background:#3b82f6; color:#fff; }
-
-    #lastList .last-item { margin:.25rem 0; }
-
-    .cal-head { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0; }
-    .cal-nav { width:40px; height:40px; border:none; border-radius:10px; background:#e7edf8; cursor:pointer; }
-    #calendarGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; background:#e5e7eb; border-radius:8px; padding:2px; }
-    .weekday { text-align:center; font-size:.9rem; color:#475569; margin:.3rem 0 .4rem; }
-    .calendar-day { background:#fff; min-height:40px; text-align:center; padding:.65rem 0 .2rem; cursor:pointer; position:relative; border-radius:6px; }
-    .calendar-day.selected { background:#e0e7ff; }
-    .dots { position:absolute; left:50%; bottom:4px; transform:translateX(-50%); display:flex; gap:2px; }
-    .dot { width:6px; height:6px; border-radius:50%; background:#3b82f6; display:inline-block; }
-    .plus { font-size:.7rem; color:#475569; margin-left:2px; }
-    #entriesPanel { margin-top:1rem; }
-    .entry-row { display:flex; align-items:center; gap:.5rem; margin:.4rem 0; }
-    .entry-name { min-width:140px; font-weight:600; }
-    .entry-time { min-width:170px; }
-    .entry-actions button { padding:.4rem .7rem; }
-
-    /* Toast / status */
-    #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:.6rem 1.2rem; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .25s; }
+    #lastList { margin-bottom:1em; }
+    .last-item { margin-bottom:0.3em; }
+    #calendarEmbed { margin-top:2em; }
+    #toast { position:fixed; left:50%; bottom:32px; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:0.7em 1.5em; border-radius:2em; opacity:0; pointer-events:none; transition:opacity 0.4s;}
     #toast.visible { opacity:1; }
-    #status { position:fixed; top:0; left:0; right:0; text-align:center; padding:.55rem; font-weight:700; opacity:0; pointer-events:none; transition:opacity .25s; }
+    #status { position:fixed; top:0; left:0; right:0; text-align:center; padding:0.7em 0; font-weight:bold; opacity:0; pointer-events:none; transition:opacity 0.4s;}
     #status.visible { opacity:1; }
-
-    /* Embedded Google Calendar container */
-    .gcal-wrap iframe { width:100%; height:650px; border:0; }
-    @media (max-width:960px) { .container { margin:0; border-radius:0; box-shadow:none; } }
+    @media (max-width:650px) { .container { margin:0; border-radius:0; box-shadow:none; } }
   </style>
 </head>
 <body>
-  <header>Peptide / Supplement Logger</header>
-
+  <header>
+    <h1>Peptide / Supplement Logger</h1>
+  </header>
   <div class="container">
-    <section>
-      <h3>Log Now</h3>
-      <div id="buttonsPanel"></div>
-    </section>
+    <h2>Log Now</h2>
+    <div id="buttonsPanel"></div>
 
-    <section>
-      <h3>Last Taken</h3>
-      <div id="lastList"></div>
-    </section>
-  </div>
+    <h2>Last Taken</h2>
+    <div id="lastList"></div>
 
-  <div class="container">
-    <div class="cal-head">
-      <button id="prevMonthBtn" class="cal-nav" aria-label="Previous Month">◀</button>
-      <div>
-        <div id="monthLabel" style="text-align:center;font-weight:700;"></div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.2rem;">
-          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div>
-          <div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
-        </div>
-      </div>
-      <button id="nextMonthBtn" class="cal-nav" aria-label="Next Month">▶</button>
+    <h2>Your Google Calendar</h2>
+    <div id="calendarEmbed">
+      <iframe src="https://calendar.google.com/calendar/embed?src=bee22b0d7e26eb2a2fdfa9c41d59e9f822a61ed3a87c60a04a876e53bb4b6dfa%40group.calendar.google.com&ctz=America%2FChicago"
+        style="border:0" width="100%" height="600" frameborder="0" scrolling="no"></iframe>
     </div>
-    <div id="calendarGrid"></div>
-
-    <section id="entriesPanel" style="display:none;">
-      <div style="font-weight:700;margin:.6rem 0;">Entries for <span id="selectedDateLabel"></span></div>
-      <div id="entriesList"></div>
-    </section>
   </div>
-
-  <!-- Embedded Google Calendar -->
-  <div class="container gcal-wrap">
-    <h3>Peps Log Calendar</h3>
-    <iframe
-      src="https://calendar.google.com/calendar/embed?src=bee22b0d7e26eb2a2fdfa9c41d59e9f822a61ed3a87c60a04a876e53bb4b6dfa%40group.calendar.google.com&ctz=America%2FChicago"
-      frameborder="0" scrolling="no"></iframe>
-  </div>
-
   <div id="toast"></div>
   <div id="status"></div>
 
   <script>
-    console.log("Peps UI loaded: JSONP build");
-
     // ===== CONFIG =====
-    const APPS_SCRIPT_URL =
-      'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgVjzEQgxWueYulgjNLMyeD7Y2ylm3vfHzWDZ60H-UCyl1GUQx7Fp7ZhCXV3VYGVPaXR3acc90kLGgnpnT0mPV8YcNH7G48FgNbuI9XNQmNbh1oveaucwlhIyOVtkmI81_6Ria8qk7jvQ4GQfrqd8FVApOmIIN7R8431bvCWLOXIDaFKgV31hubGpybKXKypl11tXni_2IdN9OdOVFiCyDPdgxdK2Bx90fPbFRPAtVyhr3H145HQrGdoorFWQ&lib=MtK1z2NrdGgBhNnG66tKP8Q0rWYMbTwle';
-    const API_TOKEN = ''; // optional shared secret; keep '' unless enabled
-    // ===================
+    const APPS_SCRIPT_URL = 'PASTE_YOUR_GOOGLEUSERCONTENT_URL_HERE'; // full ...echo?...&lib=...
+    const API_TOKEN = ''; // optional
+    // ==================
 
-    /* ---------------- JSONP client (CORS-proof) ---------------- */
-    function jsonp(paramsObj) {
-      return new Promise((resolve, reject) => {
-        const cbName = '__cb_' + Math.random().toString(36).slice(2);
-        const s = document.createElement('script');
-        const params = new URLSearchParams(paramsObj);
-        params.append('callback', cbName);
-        if (API_TOKEN) params.append('token', API_TOKEN);
+    function toast(msg){
+      const el=document.getElementById('toast'); el.textContent=msg;
+      el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2200);
+    }
+    function statusMsg(msg, isError=false){
+      const el=document.getElementById('status'); el.textContent=msg;
+      el.style.background=isError?'#e11d48':'#3b82f6';
+      el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 3000);
+    }
 
-        const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
-
-        const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 12000);
-        function cleanup(){ clearTimeout(timer); delete window[cbName]; if (s.parentNode) s.parentNode.removeChild(s); }
-
-        window[cbName] = (data) => { cleanup(); resolve(data); };
-        s.onerror = () => { cleanup(); reject(new Error('JSONP load error')); };
-        s.src = url;
-        document.head.appendChild(s);
+    // JSONP helper
+    function jsonp(url){
+      return new Promise((resolve,reject)=>{
+        const cb='cb_'+Math.random().toString(36).substr(2);
+        window[cb]=(data)=>{ resolve(data); delete window[cb]; script.remove(); };
+        const script=document.createElement('script');
+        script.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
+        script.onerror=reject;
+        document.body.appendChild(script);
       });
     }
 
-    /* --------------- Time helpers --------------- */
-    function localISO(dt = new Date()) {
-      const tzo = -dt.getTimezoneOffset(), sign = tzo >= 0 ? '+' : '-';
-      const pad2 = n => String(Math.trunc(Math.abs(n))).padStart(2,'0');
-      const y = dt.getFullYear(), m = pad2(dt.getMonth()+1), d = pad2(dt.getDate());
-      const hh = pad2(dt.getHours()), mm = pad2(dt.getMinutes()), ss = pad2(dt.getSeconds());
-      const offH = pad2(tzo/60), offM = pad2(tzo%60);
-      return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${offH}:${offM}`;
-    }
-    const fmtDate = dt => dt.toLocaleDateString('en-CA');
-    const fmtTime = dt => dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-    const fmtMonthLabel = dt => dt.toLocaleString([], { month:'long', year:'numeric' });
-    const toDatetimeLocal = iso => {
-      const d = new Date(iso);
-      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    };
-    function fmtLast(iso){
-      if(!iso) return '—';
-      const d=new Date(iso), today=fmtDate(new Date()), ds=fmtDate(d);
-      return ds===today ? fmtTime(d) : `${ds} ${fmtTime(d)}`;
-    }
-
-    /* --------------- State --------------- */
-    let lastTaken = [];
-    let calendarData = {};
-    let selectedDate = null;
-    let currentMonth = new Date();
-
-    /* --------------- UI helpers --------------- */
-    function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2000); }
-    function statusMsg(msg,isError=false){ const el=document.getElementById('status'); el.textContent=msg; el.style.background=isError?'#e11d48':'#3b82f6'; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'),2500); }
-    const confirmDialog = msg => window.confirm(msg);
-
-    /* --------------- API (via JSONP) --------------- */
-    const api = {
-      items:   () => jsonp({ action: 'items' }),
-      last:    () => jsonp({ action: 'last' }),
-      list:    (startISO, endISO) => jsonp({ action: 'list', start: startISO, end: endISO }),
-      log:     (item, tsISO)      => jsonp({ action: 'log', item, ts: tsISO }),
-      update:  (id, tsISO)        => jsonp({ action: 'update', id, ts: tsISO }),
-      delete:  (id)               => jsonp({ action: 'delete', id }),
-      addevent:(title, tsISO)     => jsonp({ action: 'addevent', title, ts: tsISO })
-    };
-
-    /* --------------- Calendar --------------- */
-    function renderCalendar(){
-      const grid = document.getElementById('calendarGrid'); grid.innerHTML='';
-      const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
-      const first=new Date(y,m,1), days=new Date(y,m+1,0).getDate(), startDow=first.getDay();
-      const todayStr = fmtDate(new Date());
-      for(let i=0;i<startDow;i++) grid.appendChild(document.createElement('div'));
-      for(let day=1; day<=days; day++){
-        const cell=document.createElement('div'); cell.className='calendar-day';
-        const d=new Date(y,m,day); const ds=fmtDate(d);
-        if(ds===todayStr) cell.style.outline='2px solid #3b82f6';
-        if(selectedDate===ds) cell.classList.add('selected');
-        cell.textContent=day;
-        const logs=calendarData[ds]||[];
-        if(logs.length){
-          const dots=document.createElement('div'); dots.className='dots';
-          const dotCt=Math.min(logs.length,5);
-          for(let i=0;i<dotCt;i++){ const dot=document.createElement('span'); dot.className='dot'; dots.appendChild(dot); }
-          if(logs.length>5){ const more=document.createElement('span'); more.className='plus'; more.textContent=`+${logs.length-5}`; dots.appendChild(more); }
-          cell.appendChild(dots);
+    async function loadItems(){
+      try {
+        const resp=await jsonp(APPS_SCRIPT_URL+'?action=items');
+        if(resp.ok){
+          const panel=document.getElementById('buttonsPanel');
+          panel.innerHTML='';
+          resp.items.forEach(name=>{
+            const btn=document.createElement('button');
+            btn.textContent=name;
+            btn.onclick=()=>logItem(name);
+            panel.appendChild(btn);
+          });
         }
-        cell.onclick=()=>{ selectedDate=ds; renderCalendar(); renderEntriesPanel(); };
-        grid.appendChild(cell);
-      }
-      document.getElementById('monthLabel').textContent = fmtMonthLabel(currentMonth);
-    }
-    const prevMonth = () => { currentMonth.setMonth(currentMonth.getMonth()-1); selectedDate=null; refreshAll(); };
-    const nextMonth = () => { currentMonth.setMonth(currentMonth.getMonth()+1); selectedDate=null; refreshAll(); };
-
-    /* --------------- Entries panel --------------- */
-    function renderEntriesPanel(){
-      const panel=document.getElementById('entriesPanel');
-      const label=document.getElementById('selectedDateLabel');
-      const list=document.getElementById('entriesList');
-      if(!selectedDate){ panel.style.display='none'; return; }
-      panel.style.display=''; label.textContent=selectedDate; list.innerHTML='';
-      const rows=(calendarData[selectedDate]||[]).sort((a,b)=> new Date(a.iso)-new Date(b.iso));
-      if(!rows.length){ list.textContent='No entries for this day.'; return; }
-      rows.forEach(entry=>{
-        const row=document.createElement('div'); row.className='entry-row';
-        const name=document.createElement('span'); name.className='entry-name'; name.textContent=entry.item;
-        const time=document.createElement('input'); time.type='datetime-local'; time.className='entry-time'; time.value=toDatetimeLocal(entry.iso);
-        const actions=document.createElement('span'); actions.className='entry-actions';
-        const save=document.createElement('button'); save.textContent='Save';
-        const del=document.createElement('button'); del.textContent='Delete';
-        save.onclick=async()=>{ if(!confirmDialog('Update this log entry time?')) return;
-          const iso=localISO(new Date(time.value)); const resp=await api.update(entry.id, iso);
-          if(resp.ok){ toast(`Saved ${entry.item}`); await refreshAll(); } else statusMsg('Failed to update entry',true);
-        };
-        del.onclick=async()=>{ if(!confirmDialog('Delete this log entry?')) return;
-          const resp=await api.delete(entry.id);
-          if(resp.ok){ toast(`Deleted ${entry.item}`); await refreshAll(); } else statusMsg('Failed to delete',true);
-        };
-        actions.append(save, del); row.append(name, time, actions); list.appendChild(row);
-      });
+      } catch(err){ statusMsg('Error loading items',true); }
     }
 
-    /* --------------- Last Taken --------------- */
-    function renderLastPanel(){
-      const list=document.getElementById('lastList'); list.innerHTML='';
-      lastTaken.forEach(({item,iso})=>{
-        const div=document.createElement('div'); div.className='last-item';
-        div.textContent = `${item}: ${fmtLast(iso)}`;
-        list.appendChild(div);
-      });
+    async function loadLast(){
+      try {
+        const resp=await jsonp(APPS_SCRIPT_URL+'?action=last');
+        if(resp.ok){
+          const list=document.getElementById('lastList');
+          list.innerHTML='';
+          (resp.data||[]).forEach(entry=>{
+            const div=document.createElement('div');
+            div.className='last-item';
+            div.textContent=`${entry.item}: ${entry.iso}`;
+            list.appendChild(div);
+          });
+        }
+      } catch(err){ statusMsg('Error loading last taken',true); }
     }
 
-    /* --------------- Buttons --------------- */
-    function renderButtonsPanel(items){
-      const panel=document.getElementById('buttonsPanel'); panel.innerHTML='';
-      items.forEach(item=>{
-        const btn=document.createElement('button'); btn.textContent=item;
-        btn.onclick=async()=>{
-          if(!confirmDialog(`Log "${item}" right now?`)) return;
-          const iso=localISO(new Date());
-          const resp=await api.log(item, iso);
-          if(resp.ok){
-            // also drop a 10-min event on the Peps Log calendar (fire-and-forget)
-            api.addevent(item, iso).catch(() => {});
-            toast(`Logged ${item}`);
-            await refreshAll();
-          } else {
-            statusMsg('Failed to log', true);
-          }
-        };
-        panel.appendChild(btn);
-      });
+    async function logItem(name){
+      if(!confirm(`Log "${name}" now?`)) return;
+      try {
+        const ts=new Date().toISOString();
+        const resp=await jsonp(APPS_SCRIPT_URL+`?action=log&item=${encodeURIComponent(name)}&ts=${encodeURIComponent(ts)}`);
+        if(resp.ok){ toast(`Logged ${name}`); loadLast(); }
+        else statusMsg('Failed to log',true);
+      } catch(err){ statusMsg('Network error logging item',true); }
     }
 
-    /* --------------- Refresh All --------------- */
-    async function refreshAll(){
-      const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
-      const start=new Date(y,m,1), end=new Date(y,m+1,0,23,59,59);
-      try{
-        const itemsResp=await api.items(); if(itemsResp.ok) renderButtonsPanel(itemsResp.items||[]);
-        const lastResp=await api.last();   if(lastResp.ok)  lastTaken = lastResp.data||[]; renderLastPanel();
-        const listResp=await api.list(start.toISOString(), end.toISOString()); calendarData={};
-        if(listResp.ok){ (listResp.data||[]).forEach(e=>{ const ds=fmtDate(new Date(e.iso)); (calendarData[ds] ||= []).push(e); }); }
-        renderCalendar(); renderEntriesPanel();
-      }catch(e){ statusMsg('Network or JSONP error', true); }
-    }
-
-    /* --------------- Init --------------- */
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('prevMonthBtn').onclick = prevMonth;
-      document.getElementById('nextMonthBtn').onclick = nextMonth;
-      refreshAll();
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./service-worker.js');
-      }
+    window.addEventListener('DOMContentLoaded', ()=>{
+      loadItems();
+      loadLast();
+      if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
     });
   </script>
 </body>
