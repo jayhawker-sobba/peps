@@ -74,13 +74,43 @@
   <div id="status"></div>
 
   <script>
-    // ======= CONFIG =======
+    // ===== CONFIG =====
+    // Your CORS-friendly Apps Script URL (the long googleusercontent "echo?user_content_key=...&lib=..." link)
     const APPS_SCRIPT_URL =
       'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgVjzEQgxWueYulgjNLMyeD7Y2ylm3vfHzWDZ60H-UCyl1GUQx7Fp7ZhCXV3VYGVPaXR3acc90kLGgnpnT0mPV8YcNH7G48FgNbuI9XNQmNbh1oveaucwlhIyOVtkmI81_6Ria8qk7jvQ4GQfrqd8FVApOmIIN7R8431bvCWLOXIDaFKgV31hubGpybKXKypl11tXni_2IdN9OdOVFiCyDPdgxdK2Bx90fPbFRPAtVyhr3H145HQrGdoorFWQ&lib=MtK1z2NrdGgBhNnG66tKP8Q0rWYMbTwle';
-    const API_TOKEN = ''; // keep blank unless you enabled TOKEN in Apps Script
-    // ======================
+    const API_TOKEN = ''; // optional shared secret; keep '' unless enabled on server
+    // ===================
 
-    // ---- Time helpers ----
+    /* ---------------- JSONP client (CORS-proof) ---------------- */
+    function jsonp(paramsObj) {
+      return new Promise((resolve, reject) => {
+        const cbName = '__cb_' + Math.random().toString(36).slice(2);
+        const s = document.createElement('script');
+        const params = new URLSearchParams(paramsObj);
+        params.append('callback', cbName);
+        if (API_TOKEN) params.append('token', API_TOKEN);
+
+        const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
+
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('JSONP timeout'));
+        }, 12000);
+
+        function cleanup() {
+          clearTimeout(timer);
+          delete window[cbName];
+          if (s.parentNode) s.parentNode.removeChild(s);
+        }
+
+        window[cbName] = (data) => { cleanup(); resolve(data); };
+        s.onerror = () => { cleanup(); reject(new Error('JSONP load error')); };
+        s.src = url;
+        document.head.appendChild(s);
+      });
+    }
+
+    /* --------------- Time helpers --------------- */
     function localISO(dt = new Date()) {
       const tzo = -dt.getTimezoneOffset(), sign = tzo >= 0 ? '+' : '-';
       const pad2 = n => String(Math.trunc(Math.abs(n))).padStart(2,'0');
@@ -89,14 +119,12 @@
       const offH = pad2(tzo/60), offM = pad2(tzo%60);
       return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${offH}:${offM}`;
     }
-    const fmtDate = dt => dt.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const fmtDate = dt => dt.toLocaleDateString('en-CA');
     const fmtTime = dt => dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
     const fmtMonthLabel = dt => dt.toLocaleString([], { month:'long', year:'numeric' });
     const toDatetimeLocal = iso => {
       const d = new Date(iso);
-      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0');
-      const day=String(d.getDate()).padStart(2,'0'), h=String(d.getHours()).padStart(2,'0'), min=String(d.getMinutes()).padStart(2,'0');
-      return `${y}-${m}-${day}T${h}:${min}`;
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     };
     function fmtLast(iso){
       if(!iso) return '—';
@@ -104,33 +132,30 @@
       return ds===today ? fmtTime(d) : `${ds} ${fmtTime(d)}`;
     }
 
-    // ---- State ----
+    /* --------------- State --------------- */
     let lastTaken = [];
     let calendarData = {};
     let selectedDate = null;
     let currentMonth = new Date();
 
-    // ---- UI helpers ----
+    /* --------------- UI helpers --------------- */
     function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2000); }
     function statusMsg(msg,isError=false){ const el=document.getElementById('status'); el.textContent=msg; el.style.background=isError?'#e11d48':'#3b82f6'; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'),2500); }
     const confirmDialog = msg => window.confirm(msg);
 
-    // ---- API ----
-    async function apiGET(params){
-      let url = `${APPS_SCRIPT_URL}?${params}`;
-      if (API_TOKEN) url += `&token=${encodeURIComponent(API_TOKEN)}`;
-      const r = await fetch(url, { cache:'no-store' });
-      return r.json();
-    }
-    async function apiPOST(obj){
-      const fd = new FormData();
-      Object.entries(obj).forEach(([k,v]) => fd.append(k,v));
-      if (API_TOKEN) fd.append('token', API_TOKEN);
-      const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:fd });
-      return r.json();
-    }
+    /* --------------- API (via JSONP) --------------- */
+    const api = {
+      items: () => jsonp({ action: 'items' }),
+      last:  () => jsonp({ action: 'last' }),
+      list:  (startISO, endISO) => jsonp({ action: 'list', start: startISO, end: endISO }),
 
-    // ---- Calendar ----
+      // Mutations via JSONP GET (server must allow in doGet)
+      log:    (item, tsISO)          => jsonp({ action: 'log', item, ts: tsISO }),
+      update: (id, tsISO)            => jsonp({ action: 'update', id, ts: tsISO }),
+      delete: (id)                   => jsonp({ action: 'delete', id })
+    };
+
+    /* --------------- Calendar --------------- */
     function renderCalendar(){
       const grid = document.getElementById('calendarGrid'); grid.innerHTML='';
       const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
@@ -159,7 +184,7 @@
     const prevMonth = () => { currentMonth.setMonth(currentMonth.getMonth()-1); selectedDate=null; refreshAll(); };
     const nextMonth = () => { currentMonth.setMonth(currentMonth.getMonth()+1); selectedDate=null; refreshAll(); };
 
-    // ---- Entries panel ----
+    /* --------------- Entries panel --------------- */
     function renderEntriesPanel(){
       const panel=document.getElementById('entriesPanel');
       const label=document.getElementById('selectedDateLabel');
@@ -176,18 +201,18 @@
         const save=document.createElement('button'); save.textContent='Save';
         const del=document.createElement('button'); del.textContent='Delete';
         save.onclick=async()=>{ if(!confirmDialog('Update this log entry time?')) return;
-          const iso=localISO(new Date(time.value)); const resp=await apiPOST({action:'update', id:entry.id, ts:iso});
+          const iso=localISO(new Date(time.value)); const resp=await api.update(entry.id, iso);
           if(resp.ok){ toast(`Saved ${entry.item}`); await refreshAll(); } else statusMsg('Failed to update entry',true);
         };
         del.onclick=async()=>{ if(!confirmDialog('Delete this log entry?')) return;
-          const resp=await apiPOST({action:'delete', id:entry.id});
+          const resp=await api.delete(entry.id);
           if(resp.ok){ toast(`Deleted ${entry.item}`); await refreshAll(); } else statusMsg('Failed to delete',true);
         };
         actions.append(save, del); row.append(name, time, actions); list.appendChild(row);
       });
     }
 
-    // ---- Last Taken ----
+    /* --------------- Last Taken --------------- */
     function renderLastPanel(){
       const list=document.getElementById('lastList'); list.innerHTML='';
       lastTaken.forEach(({item,iso})=>{
@@ -197,7 +222,7 @@
       });
     }
 
-    // ---- Buttons ----
+    /* --------------- Buttons --------------- */
     function renderButtonsPanel(items){
       const panel=document.getElementById('buttonsPanel'); panel.innerHTML='';
       items.forEach(item=>{
@@ -205,34 +230,32 @@
         btn.onclick=async()=>{
           if(!confirmDialog(`Log "${item}" right now?`)) return;
           const iso=localISO(new Date());
-          const resp=await apiPOST({action:'log', item, ts:iso});
+          const resp=await api.log(item, iso);
           if(resp.ok){ toast(`Logged ${item}`); await refreshAll(); } else statusMsg('Failed to log',true);
         };
         panel.appendChild(btn);
       });
     }
 
-    // ---- Refresh All ----
+    /* --------------- Refresh All --------------- */
     async function refreshAll(){
       const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
       const start=new Date(y,m,1), end=new Date(y,m+1,0,23,59,59);
       try{
-        const itemsResp=await apiGET('action=items'); if(itemsResp.ok) renderButtonsPanel(itemsResp.items||[]);
-        const lastResp=await apiGET('action=last');  if(lastResp.ok)  lastTaken = lastResp.data||[]; renderLastPanel();
-        const listResp=await apiGET(`action=list&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
-        calendarData={};
+        const itemsResp=await api.items(); if(itemsResp.ok) renderButtonsPanel(itemsResp.items||[]);
+        const lastResp=await api.last();   if(lastResp.ok)  lastTaken = lastResp.data||[]; renderLastPanel();
+        const listResp=await api.list(start.toISOString(), end.toISOString()); calendarData={};
         if(listResp.ok){ (listResp.data||[]).forEach(e=>{ const ds=fmtDate(new Date(e.iso)); (calendarData[ds] ||= []).push(e); }); }
         renderCalendar(); renderEntriesPanel();
-      }catch(e){ statusMsg('Network or API error', true); }
+      }catch(e){ statusMsg('Network or JSONP error', true); }
     }
 
-    // ---- Init ----
+    /* --------------- Init --------------- */
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('prevMonthBtn').onclick = prevMonth;
       document.getElementById('nextMonthBtn').onclick = nextMonth;
       refreshAll();
       if ('serviceWorker' in navigator) {
-        // keep relative so it works under /peps/
         navigator.serviceWorker.register('./service-worker.js');
       }
     });
