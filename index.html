@@ -8,12 +8,15 @@
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f6f7fb; color:#222; }
     header { background:#3b82f6; color:#fff; padding:1rem; text-align:center; font-weight:700; }
-    .container { max-width:600px; margin:2rem auto; padding:1rem; background:#fff; border-radius:12px; box-shadow:0 2px 16px #0001; }
+    .container { max-width:900px; margin:1.25rem auto; padding:1rem; background:#fff; border-radius:12px; box-shadow:0 2px 16px #0001; }
     h3 { margin:0 0 .5rem 0; }
+
     #buttonsPanel { display:flex; flex-wrap:wrap; gap:.5rem; margin:.5rem 0 1rem; }
     #buttonsPanel button { padding:.7rem 1rem; border:none; border-radius:.6rem; background:#e0e7ff; color:#1e293b; cursor:pointer; }
     #buttonsPanel button:hover { background:#3b82f6; color:#fff; }
+
     #lastList .last-item { margin:.25rem 0; }
+
     .cal-head { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0; }
     .cal-nav { width:40px; height:40px; border:none; border-radius:10px; background:#e7edf8; cursor:pointer; }
     #calendarGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; background:#e5e7eb; border-radius:8px; padding:2px; }
@@ -28,11 +31,16 @@
     .entry-name { min-width:140px; font-weight:600; }
     .entry-time { min-width:170px; }
     .entry-actions button { padding:.4rem .7rem; }
+
+    /* Toast / status */
     #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:.6rem 1.2rem; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .25s; }
     #toast.visible { opacity:1; }
     #status { position:fixed; top:0; left:0; right:0; text-align:center; padding:.55rem; font-weight:700; opacity:0; pointer-events:none; transition:opacity .25s; }
     #status.visible { opacity:1; }
-    @media (max-width:640px) { .container { margin:0; border-radius:0; box-shadow:none; } }
+
+    /* Embedded Google Calendar container */
+    .gcal-wrap iframe { width:100%; height:650px; border:0; }
+    @media (max-width:960px) { .container { margin:0; border-radius:0; box-shadow:none; } }
   </style>
 </head>
 <body>
@@ -48,21 +56,21 @@
       <h3>Last Taken</h3>
       <div id="lastList"></div>
     </section>
+  </div>
 
-    <section>
-      <div class="cal-head">
-        <button id="prevMonthBtn" class="cal-nav" aria-label="Previous Month">◀</button>
-        <div>
-          <div id="monthLabel" style="text-align:center;font-weight:700;"></div>
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.2rem;">
-            <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div>
-            <div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
-          </div>
+  <div class="container">
+    <div class="cal-head">
+      <button id="prevMonthBtn" class="cal-nav" aria-label="Previous Month">◀</button>
+      <div>
+        <div id="monthLabel" style="text-align:center;font-weight:700;"></div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.2rem;">
+          <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div>
+          <div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
         </div>
-        <button id="nextMonthBtn" class="cal-nav" aria-label="Next Month">▶</button>
       </div>
-      <div id="calendarGrid"></div>
-    </section>
+      <button id="nextMonthBtn" class="cal-nav" aria-label="Next Month">▶</button>
+    </div>
+    <div id="calendarGrid"></div>
 
     <section id="entriesPanel" style="display:none;">
       <div style="font-weight:700;margin:.6rem 0;">Entries for <span id="selectedDateLabel"></span></div>
@@ -70,15 +78,24 @@
     </section>
   </div>
 
+  <!-- Embedded Google Calendar -->
+  <div class="container gcal-wrap">
+    <h3>Peps Log Calendar</h3>
+    <iframe
+      src="https://calendar.google.com/calendar/embed?src=bee22b0d7e26eb2a2fdfa9c41d59e9f822a61ed3a87c60a04a876e53bb4b6dfa%40group.calendar.google.com&ctz=America%2FChicago"
+      frameborder="0" scrolling="no"></iframe>
+  </div>
+
   <div id="toast"></div>
   <div id="status"></div>
 
   <script>
+    console.log("Peps UI loaded: JSONP build");
+
     // ===== CONFIG =====
-    // Your CORS-friendly Apps Script URL (the long googleusercontent "echo?user_content_key=...&lib=..." link)
     const APPS_SCRIPT_URL =
       'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgVjzEQgxWueYulgjNLMyeD7Y2ylm3vfHzWDZ60H-UCyl1GUQx7Fp7ZhCXV3VYGVPaXR3acc90kLGgnpnT0mPV8YcNH7G48FgNbuI9XNQmNbh1oveaucwlhIyOVtkmI81_6Ria8qk7jvQ4GQfrqd8FVApOmIIN7R8431bvCWLOXIDaFKgV31hubGpybKXKypl11tXni_2IdN9OdOVFiCyDPdgxdK2Bx90fPbFRPAtVyhr3H145HQrGdoorFWQ&lib=MtK1z2NrdGgBhNnG66tKP8Q0rWYMbTwle';
-    const API_TOKEN = ''; // optional shared secret; keep '' unless enabled on server
+    const API_TOKEN = ''; // optional shared secret; keep '' unless enabled
     // ===================
 
     /* ---------------- JSONP client (CORS-proof) ---------------- */
@@ -92,16 +109,8 @@
 
         const url = APPS_SCRIPT_URL + (APPS_SCRIPT_URL.includes('?') ? '&' : '?') + params.toString();
 
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error('JSONP timeout'));
-        }, 12000);
-
-        function cleanup() {
-          clearTimeout(timer);
-          delete window[cbName];
-          if (s.parentNode) s.parentNode.removeChild(s);
-        }
+        const timer = setTimeout(() => { cleanup(); reject(new Error('JSONP timeout')); }, 12000);
+        function cleanup(){ clearTimeout(timer); delete window[cbName]; if (s.parentNode) s.parentNode.removeChild(s); }
 
         window[cbName] = (data) => { cleanup(); resolve(data); };
         s.onerror = () => { cleanup(); reject(new Error('JSONP load error')); };
@@ -145,14 +154,13 @@
 
     /* --------------- API (via JSONP) --------------- */
     const api = {
-      items: () => jsonp({ action: 'items' }),
-      last:  () => jsonp({ action: 'last' }),
-      list:  (startISO, endISO) => jsonp({ action: 'list', start: startISO, end: endISO }),
-
-      // Mutations via JSONP GET (server must allow in doGet)
-      log:    (item, tsISO)          => jsonp({ action: 'log', item, ts: tsISO }),
-      update: (id, tsISO)            => jsonp({ action: 'update', id, ts: tsISO }),
-      delete: (id)                   => jsonp({ action: 'delete', id })
+      items:   () => jsonp({ action: 'items' }),
+      last:    () => jsonp({ action: 'last' }),
+      list:    (startISO, endISO) => jsonp({ action: 'list', start: startISO, end: endISO }),
+      log:     (item, tsISO)      => jsonp({ action: 'log', item, ts: tsISO }),
+      update:  (id, tsISO)        => jsonp({ action: 'update', id, ts: tsISO }),
+      delete:  (id)               => jsonp({ action: 'delete', id }),
+      addevent:(title, tsISO)     => jsonp({ action: 'addevent', title, ts: tsISO })
     };
 
     /* --------------- Calendar --------------- */
@@ -231,7 +239,14 @@
           if(!confirmDialog(`Log "${item}" right now?`)) return;
           const iso=localISO(new Date());
           const resp=await api.log(item, iso);
-          if(resp.ok){ toast(`Logged ${item}`); await refreshAll(); } else statusMsg('Failed to log',true);
+          if(resp.ok){
+            // also drop a 10-min event on the Peps Log calendar (fire-and-forget)
+            api.addevent(item, iso).catch(() => {});
+            toast(`Logged ${item}`);
+            await refreshAll();
+          } else {
+            statusMsg('Failed to log', true);
+          }
         };
         panel.appendChild(btn);
       });
