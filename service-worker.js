@@ -1,6 +1,5 @@
-// Minimal, safe SW: no manifest, no icons; only caches the shell.
-// Bump version when you change files to force update.
-const CACHE = 'peptide-logger-v7';
+// Minimal, safe SW: only caches shell; no manifest/icons -> no 404s.
+const CACHE = 'peptide-logger-v8';
 const ASSETS = [
   './',
   './index.html'
@@ -10,7 +9,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE)
       .then(cache => cache.addAll(ASSETS))
-      .catch(() => self.skipWaiting()) // don’t fail install if addAll hiccups
+      .catch(() => self.skipWaiting())
   );
 });
 
@@ -22,15 +21,13 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for same-origin requests; network for cross-origin (Apps Script)
+// Cache-first for same-origin; let cross-origin (Apps Script) go to network.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin === location.origin) {
     event.respondWith(
       caches.match(event.request).then(res => res || fetch(event.request))
     );
-  } else {
-    // For API calls to script.googleusercontent.com: always go to network
-    return; // default: pass-through to network
   }
+  // else: fall through to network (no respondWith) for APIs
 });
