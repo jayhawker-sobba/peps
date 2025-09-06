@@ -3,23 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Peptide / Supplement Logger</title>
-  <link rel="manifest" href="manifest.webmanifest">
+  <title>Peptide/Supplement Logger</title>
   <meta name="theme-color" content="#3b82f6">
   <style>
     body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f6f7fb; color:#222; }
-    header { background:#3b82f6; color:#fff; padding: 1em; text-align:center; }
-    .container { max-width:900px; margin:1em auto; padding:1em; background:#fff; box-shadow:0 2px 16px #0002; border-radius:1em; }
+    header { background: #3b82f6; color:#fff; padding: 1em; text-align:center; }
+    .container { max-width:900px; margin:2em auto; padding:1em; background:#fff; box-shadow:0 2px 16px #0002; border-radius:1em; }
+    #calendarGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; margin-bottom:1em; background:#e5e7eb; }
+    .calendar-day { background:#fff; min-height:32px; text-align:center; padding:0.7em 0 0.2em 0; cursor:pointer; position:relative; border-radius:0.5em; }
+    .calendar-day.selected { background:#e0e7ff; }
+    .dots { position:absolute; left:50%; bottom:3px; transform:translateX(-50%); display:flex; gap:2px;}
+    .dot { display:inline-block; width:6px; height:6px; background:#3b82f6; border-radius:50%; }
+    .plus { font-size:0.7em; color:#555; margin-left:2px; }
+    .entry-row { display:flex; align-items:center; gap:0.7em; margin-bottom:0.5em; }
+    .entry-name { flex:2; }
+    .entry-time { flex:1; min-width:130px; }
+    .entry-actions button { margin-left: 0.5em; }
     #buttonsPanel { display:flex; flex-wrap:wrap; gap:0.5em; margin-bottom:1em; }
-    #buttonsPanel button { padding:0.6em 1em; border:none; background:#e0e7ff; color:#1e293b; border-radius:0.6em; font-size:0.95em; cursor:pointer; transition:background 0.2s; }
+    #buttonsPanel button { padding:0.8em 1.2em; border:none; background:#e0e7ff; color:#1e293b; border-radius:0.6em; font-size:1em; cursor:pointer; transition:background 0.2s; }
     #buttonsPanel button:hover { background:#3b82f6; color:#fff; }
     #lastList { margin-bottom:1em; }
     .last-item { margin-bottom:0.3em; }
-    #calendarEmbed { margin-top:2em; }
     #toast { position:fixed; left:50%; bottom:32px; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:0.7em 1.5em; border-radius:2em; opacity:0; pointer-events:none; transition:opacity 0.4s;}
     #toast.visible { opacity:1; }
     #status { position:fixed; top:0; left:0; right:0; text-align:center; padding:0.7em 0; font-weight:bold; opacity:0; pointer-events:none; transition:opacity 0.4s;}
     #status.visible { opacity:1; }
+    iframe { width:100%; border:0; margin-top:1em; border-radius:0.5em; }
     @media (max-width:650px) { .container { margin:0; border-radius:0; box-shadow:none; } }
   </style>
 </head>
@@ -28,96 +37,114 @@
     <h1>Peptide / Supplement Logger</h1>
   </header>
   <div class="container">
-    <h2>Log Now</h2>
-    <div id="buttonsPanel"></div>
-
-    <h2>Last Taken</h2>
-    <div id="lastList"></div>
-
-    <h2>Your Google Calendar</h2>
-    <div id="calendarEmbed">
-      <iframe src="https://calendar.google.com/calendar/embed?src=bee22b0d7e26eb2a2fdfa9c41d59e9f822a61ed3a87c60a04a876e53bb4b6dfa%40group.calendar.google.com&ctz=America%2FChicago"
-        style="border:0" width="100%" height="600" frameborder="0" scrolling="no"></iframe>
-    </div>
+    <section>
+      <h2>Log Now</h2>
+      <div id="buttonsPanel"></div>
+      <h2>Last Taken</h2>
+      <div id="lastList"></div>
+    </section>
+    <section>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <button id="prevMonthBtn" aria-label="Previous Month">&lt;</button>
+        <span id="monthLabel" style="font-weight:bold;"></span>
+        <button id="nextMonthBtn" aria-label="Next Month">&gt;</button>
+      </div>
+      <div id="calendarGrid"></div>
+    </section>
+    <section id="entriesPanel" style="display:none;">
+      <div style="font-weight:bold;margin-bottom:8px;">Entries for <span id="selectedDateLabel"></span></div>
+      <div id="entriesList"></div>
+    </section>
+    <section>
+      <h2>Calendar</h2>
+      <iframe src="https://calendar.google.com/calendar/embed?src=bee22b0d7e26eb2a2fdfa9c41d59e9f822a61ed3a87c60a04a876e53bb4b6dfa%40group.calendar.google.com&ctz=America%2FChicago" width="800" height="600" frameborder="0" scrolling="no"></iframe>
+    </section>
   </div>
   <div id="toast"></div>
   <div id="status"></div>
-
   <script>
-    // ===== CONFIG =====
-    const APPS_SCRIPT_URL = 'PASTE_YOUR_GOOGLEUSERCONTENT_URL_HERE'; // full ...echo?...&lib=...
-    const API_TOKEN = ''; // optional
-    // ==================
+    // ====== CONFIG ======
+    const APPS_SCRIPT_URL = "YOUR_DEPLOYED_SCRIPT_URL_HERE"; 
+    const API_TOKEN = '';
+    // ====================
 
-    function toast(msg){
-      const el=document.getElementById('toast'); el.textContent=msg;
-      el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2200);
+    // ---- API Wrappers ----
+    async function apiGET(params){
+      let url = `${APPS_SCRIPT_URL}?${params}`;
+      if (API_TOKEN) url += `&token=${encodeURIComponent(API_TOKEN)}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      const txt = await r.text();
+      try { return JSON.parse(txt); } catch { return { ok:false, error:"Invalid JSON", raw:txt }; }
     }
-    function statusMsg(msg, isError=false){
-      const el=document.getElementById('status'); el.textContent=msg;
-      el.style.background=isError?'#e11d48':'#3b82f6';
-      el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 3000);
+    async function apiPOST(obj){
+      const fd = new FormData();
+      Object.entries(obj).forEach(([k,v]) => fd.append(k,v));
+      if (API_TOKEN) fd.append('token', API_TOKEN);
+      const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body: fd });
+      const txt = await r.text();
+      try { return JSON.parse(txt); } catch { return { ok:false, error:"Invalid JSON", raw:txt }; }
     }
 
-    // JSONP helper
-    function jsonp(url){
-      return new Promise((resolve,reject)=>{
-        const cb='cb_'+Math.random().toString(36).substr(2);
-        window[cb]=(data)=>{ resolve(data); delete window[cb]; script.remove(); };
-        const script=document.createElement('script');
-        script.src=url+(url.includes('?')?'&':'?')+'callback='+cb;
-        script.onerror=reject;
-        document.body.appendChild(script);
+    // --- UI Stuff (same as before) ---
+    function fmtDate(dt){ return dt.toLocaleDateString('en-CA'); }
+    function fmtTime(dt){ return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+    function fmtMonthLabel(dt){ return dt.toLocaleString([], {month:'long',year:'numeric'}); }
+
+    let items = [], lastTaken=[], calendarData={}, selectedDate=null, currentMonth=new Date();
+
+    function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),2200);}
+    function statusMsg(msg,isError=false){const el=document.getElementById('status');el.textContent=msg;el.style.background=isError?'#e11d48':'#3b82f6';el.classList.add('visible');setTimeout(()=>el.classList.remove('visible'),3000);}
+    function confirmDialog(msg){return window.confirm(msg);}
+
+    function renderButtonsPanel(){
+      const panel=document.getElementById('buttonsPanel'); panel.innerHTML='';
+      items.forEach(item=>{
+        const btn=document.createElement('button'); btn.textContent=item;
+        btn.onclick=async()=>{
+          if(!confirmDialog(`Log "${item}" now?`)) return;
+          const now=new Date();
+          const resp=await apiPOST({action:'log',item,ts:now.toISOString()});
+          if(resp.ok){toast(`Logged ${item}`);refreshAll();}
+        };
+        panel.appendChild(btn);
       });
     }
 
-    async function loadItems(){
-      try {
-        const resp=await jsonp(APPS_SCRIPT_URL+'?action=items');
-        if(resp.ok){
-          const panel=document.getElementById('buttonsPanel');
-          panel.innerHTML='';
-          resp.items.forEach(name=>{
-            const btn=document.createElement('button');
-            btn.textContent=name;
-            btn.onclick=()=>logItem(name);
-            panel.appendChild(btn);
-          });
-        }
-      } catch(err){ statusMsg('Error loading items',true); }
+    function renderLastPanel(){
+      const list=document.getElementById('lastList'); list.innerHTML='';
+      lastTaken.forEach(({item,iso})=>{
+        const div=document.createElement('div'); div.className='last-item';
+        div.textContent=`${item}: ${iso}`;
+        list.appendChild(div);
+      });
     }
 
-    async function loadLast(){
-      try {
-        const resp=await jsonp(APPS_SCRIPT_URL+'?action=last');
-        if(resp.ok){
-          const list=document.getElementById('lastList');
-          list.innerHTML='';
-          (resp.data||[]).forEach(entry=>{
-            const div=document.createElement('div');
-            div.className='last-item';
-            div.textContent=`${entry.item}: ${entry.iso}`;
-            list.appendChild(div);
-          });
-        }
-      } catch(err){ statusMsg('Error loading last taken',true); }
+    function renderCalendar(){
+      const grid=document.getElementById('calendarGrid'); grid.innerHTML='';
+      const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
+      const first=new Date(y,m,1), days=new Date(y,m+1,0).getDate();
+      const startDow=first.getDay();
+      for(let i=0;i<startDow;i++) grid.appendChild(document.createElement('div'));
+      for(let d=1;d<=days;d++){
+        const cell=document.createElement('div'); cell.className='calendar-day'; cell.textContent=d;
+        grid.appendChild(cell);
+      }
+      document.getElementById('monthLabel').textContent=fmtMonthLabel(currentMonth);
     }
 
-    async function logItem(name){
-      if(!confirm(`Log "${name}" now?`)) return;
-      try {
-        const ts=new Date().toISOString();
-        const resp=await jsonp(APPS_SCRIPT_URL+`?action=log&item=${encodeURIComponent(name)}&ts=${encodeURIComponent(ts)}`);
-        if(resp.ok){ toast(`Logged ${name}`); loadLast(); }
-        else statusMsg('Failed to log',true);
-      } catch(err){ statusMsg('Network error logging item',true); }
+    async function refreshAll(){
+      const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
+      const start=new Date(y,m,1), end=new Date(y,m+1,0,23,59,59);
+      const itemsResp=await apiGET('action=items'); if(itemsResp.ok) items=itemsResp.items||[];
+      renderButtonsPanel();
+      const lastResp=await apiGET('action=last'); if(lastResp.ok) lastTaken=lastResp.data||[];
+      renderLastPanel();
+      const listResp=await apiGET(`action=list&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+      if(listResp.ok) calendarData=listResp.data||[];
+      renderCalendar();
     }
 
-    window.addEventListener('DOMContentLoaded', ()=>{
-      loadItems();
-      loadLast();
-      if('serviceWorker' in navigator){ navigator.serviceWorker.register('service-worker.js'); }
-    });
+    window.addEventListener('DOMContentLoaded',()=>{refreshAll();});
   </script>
 </body>
 </html>
