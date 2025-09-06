@@ -1,5 +1,5 @@
 // Minimal, safe SW: only caches shell; no manifest/icons -> no 404s.
-const CACHE = 'peptide-logger-v8';
+const CACHE = 'peptide-logger-v9'; // bump to force update
 const ASSETS = [
   './',
   './index.html'
@@ -29,5 +29,5 @@ self.addEventListener('fetch', (event) => {
       caches.match(event.request).then(res => res || fetch(event.request))
     );
   }
-  // else: fall through to network (no respondWith) for APIs
+  // cross-origin: fall through to network
 });
