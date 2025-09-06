@@ -1,52 +1,36 @@
-const CACHE = 'peptide-logger-v2';  // bump this when you update assets
+// Minimal, safe SW: no manifest, no icons; only caches the shell.
+// Bump version when you change files to force update.
+const CACHE = 'peptide-logger-v7';
 const ASSETS = [
   './',
-  './index.html',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  './index.html'
 ];
 
-// Install: pre-cache shell and activate immediately
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.addAll(ASSETS))
+      .catch(() => self.skipWaiting()) // don’t fail install if addAll hiccups
   );
 });
 
-// Activate: clean old caches and take control
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys
-        .filter((k) => k !== CACHE)
-        .map((k) => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(k => (k === CACHE ? null : caches.delete(k))))
+    )
   );
 });
 
-// Fetch: cache-first for same-origin assets; offline fallback for navigation
-self.addEventListener('fetch', (e) => {
-  const req = e.request;
-  const url = new URL(req.url);
-
-  // Let cross-origin (Apps Script API, etc.) go straight to network
-  if (url.origin !== location.origin) return;
-
-  // For navigations, try network then fallback to cached shell
-  if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).catch(() => caches.match('./index.html'))
+// Cache-first for same-origin requests; network for cross-origin (Apps Script)
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin === location.origin) {
+    event.respondWith(
+      caches.match(event.request).then(res => res || fetch(event.request))
     );
-    return;
-  }
-
-  // For other same-origin GETs, serve cache-first
-  if (req.method === 'GET') {
-    e.respondWith(
-      caches.match(req).then((cached) => cached || fetch(req))
-    );
+  } else {
+    // For API calls to script.googleusercontent.com: always go to network
+    return; // default: pass-through to network
   }
 });
