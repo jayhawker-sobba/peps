@@ -5,257 +5,236 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Peptide / Supplement Logger</title>
   <meta name="theme-color" content="#3b82f6" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icons/icon-192.png" sizes="192x192" />
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f6f7fb; color:#111827; }
-    header { background:#3b82f6; color:#fff; padding:1rem; text-align:center; font-weight:700; font-size:1.35rem; }
-    .wrap { max-width:900px; margin:0 auto; }
-    .card { margin:1rem .75rem; background:#fff; border-radius:12px; box-shadow:0 1px 3px #0001; padding:.9rem; }
-    .card h2 { margin:.2rem 0 .6rem; font-size:1rem; }
-    .buttons { display:flex; flex-wrap:wrap; gap:.5rem; }
-    .buttons button { padding:.7em 1.1em; border:0; border-radius:10px; background:#e0e7ff; color:#1e293b; cursor:pointer; }
-    .buttons button:hover { background:#3b82f6; color:#fff; }
-    .lasts { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.4rem .9rem; }
-    .calendar-head { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin:0 .75rem; color:#64748b; font-size:.85rem; text-align:center; }
-    .calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; background:#e5e7eb; margin:.25rem .75rem; border-radius:8px; overflow:hidden; }
-    .day { background:#fff; min-height:56px; border-radius:6px; text-align:center; padding:.25em .15em; font-size:.95em; position:relative; cursor:pointer; box-sizing:border-box; }
-    .day.selected { box-shadow:0 0 0 2px #3b82f6 inset; z-index:1; }
-    .dots { display:flex; justify-content:center; align-items:center; gap:2px; margin-top:4px; flex-wrap:wrap; }
-    .dot { width:7px; height:7px; background:#3b82f6; border-radius:50%; }
-    .plus { font-size:.8em; color:#3b82f6; margin-left:2px; }
-    .bar { display:flex; justify-content:space-between; align-items:center; margin:.5rem .75rem 0; }
-    .bar button { padding:.5em .8em; border:0; border-radius:8px; background:#e2e8f0; cursor:pointer; }
-    .entry-row { display:flex; align-items:center; gap:.6rem; margin-bottom:.5rem; }
-    .entry-name { min-width:120px; font-weight:600; }
+    body { font-family: system-ui, Arial, sans-serif; margin:0; background:#f6f7fb; color:#222; }
+    header { background:#3b82f6; color:#fff; padding:1rem; text-align:center; font-weight:700; }
+    .container { max-width:600px; margin:2rem auto; padding:1rem; background:#fff; border-radius:12px; box-shadow:0 2px 16px #0001; }
+    h3 { margin:0 0 .5rem 0; }
+    #buttonsPanel { display:flex; flex-wrap:wrap; gap:.5rem; margin:.5rem 0 1rem; }
+    #buttonsPanel button { padding:.7rem 1rem; border:none; border-radius:.6rem; background:#e0e7ff; color:#1e293b; cursor:pointer; }
+    #buttonsPanel button:hover { background:#3b82f6; color:#fff; }
+    #lastList .last-item { margin:.25rem 0; }
+    .cal-head { display:flex; align-items:center; justify-content:space-between; margin:.75rem 0; }
+    .cal-nav { width:40px; height:40px; border:none; border-radius:10px; background:#e7edf8; cursor:pointer; }
+    #calendarGrid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; background:#e5e7eb; border-radius:8px; padding:2px; }
+    .weekday { text-align:center; font-size:.9rem; color:#475569; margin:.3rem 0 .4rem; }
+    .calendar-day { background:#fff; min-height:40px; text-align:center; padding:.65rem 0 .2rem; cursor:pointer; position:relative; border-radius:6px; }
+    .calendar-day.selected { background:#e0e7ff; }
+    .dots { position:absolute; left:50%; bottom:4px; transform:translateX(-50%); display:flex; gap:2px; }
+    .dot { width:6px; height:6px; border-radius:50%; background:#3b82f6; display:inline-block; }
+    .plus { font-size:.7rem; color:#475569; margin-left:2px; }
+    #entriesPanel { margin-top:1rem; }
+    .entry-row { display:flex; align-items:center; gap:.5rem; margin:.4rem 0; }
+    .entry-name { min-width:140px; font-weight:600; }
     .entry-time { min-width:170px; }
-    .toast,.status { position:fixed; left:50%; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:.8em 1.5em; border-radius:999px; box-shadow:0 2px 8px #0002; z-index:999; opacity:0; pointer-events:none; transition:opacity .3s; }
-    .toast { bottom:2.5em; } .status { bottom:5.2em; }
-    .toast.visible,.status.visible{ opacity:1; pointer-events:auto; }
-    @media (max-width:600px){ .day{min-height:42px; font-size:.9em} .card{padding:.65rem} }
+    .entry-actions button { padding:.4rem .7rem; }
+    #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#3b82f6; color:#fff; padding:.6rem 1.2rem; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .25s; }
+    #toast.visible { opacity:1; }
+    #status { position:fixed; top:0; left:0; right:0; text-align:center; padding:.55rem; font-weight:700; opacity:0; pointer-events:none; transition:opacity .25s; }
+    #status.visible { opacity:1; }
+    @media (max-width:640px) { .container { margin:0; border-radius:0; box-shadow:none; } }
   </style>
 </head>
 <body>
   <header>Peptide / Supplement Logger</header>
-  <div class="wrap">
-    <section class="card">
-      <h2>Log Now</h2>
-      <div id="buttonsPanel" class="buttons"></div>
+
+  <div class="container">
+    <section>
+      <h3>Log Now</h3>
+      <div id="buttonsPanel"></div>
     </section>
 
-    <section class="card">
-      <h2>Last Taken</h2>
-      <div id="lastList" class="lasts"></div>
+    <section>
+      <h3>Last Taken</h3>
+      <div id="lastList"></div>
     </section>
 
-    <div class="bar">
-      <button id="prevMonthBtn" aria-label="Previous Month">◀︎</button>
-      <strong id="monthLabel">Month YYYY</strong>
-      <button id="nextMonthBtn" aria-label="Next Month">▶︎</button>
-    </div>
-    <div class="calendar-head" aria-hidden="true">
-      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-    </div>
-    <section id="calendarGrid" class="calendar" aria-label="Month calendar"></section>
+    <section>
+      <div class="cal-head">
+        <button id="prevMonthBtn" class="cal-nav" aria-label="Previous Month">◀</button>
+        <div>
+          <div id="monthLabel" style="text-align:center;font-weight:700;"></div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-top:.2rem;">
+            <div class="weekday">Sun</div><div class="weekday">Mon</div><div class="weekday">Tue</div>
+            <div class="weekday">Wed</div><div class="weekday">Thu</div><div class="weekday">Fri</div><div class="weekday">Sat</div>
+          </div>
+        </div>
+        <button id="nextMonthBtn" class="cal-nav" aria-label="Next Month">▶</button>
+      </div>
+      <div id="calendarGrid"></div>
+    </section>
 
-    <section id="entriesCard" class="card" style="display:none;">
-      <h2>Entries for <span id="selectedDateLabel"></span></h2>
+    <section id="entriesPanel" style="display:none;">
+      <div style="font-weight:700;margin:.6rem 0;">Entries for <span id="selectedDateLabel"></span></div>
       <div id="entriesList"></div>
     </section>
   </div>
 
-  <div id="toast" class="toast"></div>
-  <div id="status" class="status"></div>
+  <div id="toast"></div>
+  <div id="status"></div>
 
   <script>
-    // ====== CONFIG (EDIT ME) ======
-    const APPS_SCRIPT_URL = 'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgVjzEQgxWueYulgjNLMyeD7Y2ylm3vfHzWDZ60H-UCyl1GUQx7Fp7ZhCXV3VYGVPaXR3acc90kLGgnpnT0mPV8YcNH7G48FgNbuI9XNQmNbh1oveaucwlhIyOVtkmI81_6Ria8qk7jvQ4GQfrqd8FVApOmIIN7R8431bvCWLOXIDaFKgV31hubGpybKXKypl11tXni_2IdN9OdOVFiCyDPdgxdK2Bx90fPbFRPAtVyhr3H145HQrGdoorFWQ&lib=MtK1z2NrdGgBhNnG66tKP8Q0rWYMbTwle';
-    const API_TOKEN = ''; // optional if you set TOKEN in Apps Script
-    // ====== END CONFIG ======
+    // ======= CONFIG =======
+    const APPS_SCRIPT_URL =
+      'https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLgVjzEQgxWueYulgjNLMyeD7Y2ylm3vfHzWDZ60H-UCyl1GUQx7Fp7ZhCXV3VYGVPaXR3acc90kLGgnpnT0mPV8YcNH7G48FgNbuI9XNQmNbh1oveaucwlhIyOVtkmI81_6Ria8qk7jvQ4GQfrqd8FVApOmIIN7R8431bvCWLOXIDaFKgV31hubGpybKXKypl11tXni_2IdN9OdOVFiCyDPdgxdK2Bx90fPbFRPAtVyhr3H145HQrGdoorFWQ&lib=MtK1z2NrdGgBhNnG66tKP8Q0rWYMbTwle';
+    const API_TOKEN = ''; // keep blank unless you enabled TOKEN in Apps Script
+    // ======================
 
-    // Guard (only warns if you forgot to set a URL)
-    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.includes('PASTE_YOUR_APPS_SCRIPT')) {
-      alert('Configure APPS_SCRIPT_URL in index.html before using the app.');
-    }
-
-    // ---- Time helpers (local time + offset) ----
+    // ---- Time helpers ----
     function localISO(dt = new Date()) {
-      const tzo = -dt.getTimezoneOffset();
-      const sign = tzo >= 0 ? '+' : '-';
+      const tzo = -dt.getTimezoneOffset(), sign = tzo >= 0 ? '+' : '-';
       const pad2 = n => String(Math.trunc(Math.abs(n))).padStart(2,'0');
       const y = dt.getFullYear(), m = pad2(dt.getMonth()+1), d = pad2(dt.getDate());
       const hh = pad2(dt.getHours()), mm = pad2(dt.getMinutes()), ss = pad2(dt.getSeconds());
       const offH = pad2(tzo/60), offM = pad2(tzo%60);
       return `${y}-${m}-${d}T${hh}:${mm}:${ss}${sign}${offH}:${offM}`;
     }
-    function fmtDate(dt){ return dt.toLocaleDateString('en-CA'); } // YYYY-MM-DD
-    function fmtTime(dt){ return dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
-    function fmtMonthLabel(dt){ return dt.toLocaleString([], {month:'long',year:'numeric'}); }
-    function toDatetimeLocal(iso){
-      const d=new Date(iso);
-      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
-      const h=String(d.getHours()).padStart(2,'0'), min=String(d.getMinutes()).padStart(2,'0');
+    const fmtDate = dt => dt.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const fmtTime = dt => dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    const fmtMonthLabel = dt => dt.toLocaleString([], { month:'long', year:'numeric' });
+    const toDatetimeLocal = iso => {
+      const d = new Date(iso);
+      const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0');
+      const day=String(d.getDate()).padStart(2,'0'), h=String(d.getHours()).padStart(2,'0'), min=String(d.getMinutes()).padStart(2,'0');
       return `${y}-${m}-${day}T${h}:${min}`;
+    };
+    function fmtLast(iso){
+      if(!iso) return '—';
+      const d=new Date(iso), today=fmtDate(new Date()), ds=fmtDate(d);
+      return ds===today ? fmtTime(d) : `${ds} ${fmtTime(d)}`;
     }
 
-    // ---- App state ----
-    let items = [];           // ['Tesamorelin', ...] from Items sheet
-    let lastTaken = [];       // [{item, iso}]
-    let byDay = {};           // {'YYYY-MM-DD': [entry,...]}
-    let selectedDate = null;  // 'YYYY-MM-DD'
+    // ---- State ----
+    let lastTaken = [];
+    let calendarData = {};
+    let selectedDate = null;
     let currentMonth = new Date();
 
     // ---- UI helpers ----
-    function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2200); }
-    function statusMsg(msg, err=false){ const el=document.getElementById('status'); el.textContent=msg; el.style.background=err?'#e11d48':'#3b82f6'; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 3000); }
-    function confirmDialog(msg){ return window.confirm(msg); }
+    function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'), 2000); }
+    function statusMsg(msg,isError=false){ const el=document.getElementById('status'); el.textContent=msg; el.style.background=isError?'#e11d48':'#3b82f6'; el.classList.add('visible'); setTimeout(()=>el.classList.remove('visible'),2500); }
+    const confirmDialog = msg => window.confirm(msg);
 
-    // ---- API helpers ----
+    // ---- API ----
     async function apiGET(params){
       let url = `${APPS_SCRIPT_URL}?${params}`;
       if (API_TOKEN) url += `&token=${encodeURIComponent(API_TOKEN)}`;
-      url += `${url.includes('?') ? '&' : '?'}_=${Date.now()}`;     // cache-bust
-      const r = await fetch(url, { cache: 'no-store' });
+      const r = await fetch(url, { cache:'no-store' });
       return r.json();
     }
     async function apiPOST(obj){
       const fd = new FormData();
       Object.entries(obj).forEach(([k,v]) => fd.append(k,v));
       if (API_TOKEN) fd.append('token', API_TOKEN);
-      const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body: fd });
+      const r = await fetch(APPS_SCRIPT_URL, { method:'POST', body:fd });
       return r.json();
     }
 
     // ---- Calendar ----
     function renderCalendar(){
       const grid = document.getElementById('calendarGrid'); grid.innerHTML='';
-      const y = currentMonth.getFullYear(), m = currentMonth.getMonth();
-      const first = new Date(y,m,1), days = new Date(y,m+1,0).getDate();
-      const startDow = first.getDay(); const todayStr = fmtDate(new Date());
+      const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
+      const first=new Date(y,m,1), days=new Date(y,m+1,0).getDate(), startDow=first.getDay();
+      const todayStr = fmtDate(new Date());
       for(let i=0;i<startDow;i++) grid.appendChild(document.createElement('div'));
-
       for(let day=1; day<=days; day++){
-        const cell = document.createElement('div'); cell.className='day';
-        const d = new Date(y,m,day); const ds = fmtDate(d);
-        if (ds===todayStr) cell.style.outline = '2px solid #3b82f6';
-        if (selectedDate===ds) cell.classList.add('selected');
-        cell.setAttribute('aria-label', `Day ${day}`); cell.textContent = day;
-
-        const logs = byDay[ds] || [];
-        if (logs.length){
-          const dots = document.createElement('div'); dots.className='dots';
-          const dotCt = Math.min(logs.length, 5);
-          for(let i=0;i<dotCt;i++) dots.appendChild(document.createElement('span')).className='dot';
-          if (logs.length>5){ const more=document.createElement('span'); more.className='plus'; more.textContent=`+${logs.length-5}`; dots.appendChild(more); }
+        const cell=document.createElement('div'); cell.className='calendar-day';
+        const d=new Date(y,m,day); const ds=fmtDate(d);
+        if(ds===todayStr) cell.style.outline='2px solid #3b82f6';
+        if(selectedDate===ds) cell.classList.add('selected');
+        cell.textContent=day;
+        const logs=calendarData[ds]||[];
+        if(logs.length){
+          const dots=document.createElement('div'); dots.className='dots';
+          const dotCt=Math.min(logs.length,5);
+          for(let i=0;i<dotCt;i++){ const dot=document.createElement('span'); dot.className='dot'; dots.appendChild(dot); }
+          if(logs.length>5){ const more=document.createElement('span'); more.className='plus'; more.textContent=`+${logs.length-5}`; dots.appendChild(more); }
           cell.appendChild(dots);
         }
-        cell.onclick = () => { selectedDate = ds; renderCalendar(); renderEntriesPanel(); };
+        cell.onclick=()=>{ selectedDate=ds; renderCalendar(); renderEntriesPanel(); };
         grid.appendChild(cell);
       }
       document.getElementById('monthLabel').textContent = fmtMonthLabel(currentMonth);
     }
-    function prevMonth(){ currentMonth.setMonth(currentMonth.getMonth()-1); selectedDate=null; refreshAll(); }
-    function nextMonth(){ currentMonth.setMonth(currentMonth.getMonth()+1); selectedDate=null; refreshAll(); }
+    const prevMonth = () => { currentMonth.setMonth(currentMonth.getMonth()-1); selectedDate=null; refreshAll(); };
+    const nextMonth = () => { currentMonth.setMonth(currentMonth.getMonth()+1); selectedDate=null; refreshAll(); };
 
     // ---- Entries panel ----
     function renderEntriesPanel(){
-      const card=document.getElementById('entriesCard');
+      const panel=document.getElementById('entriesPanel');
       const label=document.getElementById('selectedDateLabel');
       const list=document.getElementById('entriesList');
-      if (!selectedDate){ card.style.display='none'; return; }
-      card.style.display=''; label.textContent=selectedDate; list.innerHTML='';
-
-      const rows=(byDay[selectedDate]||[]).sort((a,b)=> new Date(a.iso)-new Date(b.iso));
+      if(!selectedDate){ panel.style.display='none'; return; }
+      panel.style.display=''; label.textContent=selectedDate; list.innerHTML='';
+      const rows=(calendarData[selectedDate]||[]).sort((a,b)=> new Date(a.iso)-new Date(b.iso));
       if(!rows.length){ list.textContent='No entries for this day.'; return; }
-
       rows.forEach(entry=>{
         const row=document.createElement('div'); row.className='entry-row';
         const name=document.createElement('span'); name.className='entry-name'; name.textContent=entry.item;
         const time=document.createElement('input'); time.type='datetime-local'; time.className='entry-time'; time.value=toDatetimeLocal(entry.iso);
+        const actions=document.createElement('span'); actions.className='entry-actions';
         const save=document.createElement('button'); save.textContent='Save';
         const del=document.createElement('button'); del.textContent='Delete';
-
-        save.onclick = async ()=>{
-          if(!confirmDialog('Update this log entry time?')) return;
-          save.disabled=true;
-          try{
-            const iso = localISO(new Date(time.value));
-            const resp = await apiPOST({action:'update', id:entry.id, ts:iso});
-            if(resp.ok){ toast(`Saved ${entry.item}`); await refreshAll(); } else throw new Error();
-          }catch{ statusMsg('Failed to update entry', true); }
-          finally{ save.disabled=false; }
+        save.onclick=async()=>{ if(!confirmDialog('Update this log entry time?')) return;
+          const iso=localISO(new Date(time.value)); const resp=await apiPOST({action:'update', id:entry.id, ts:iso});
+          if(resp.ok){ toast(`Saved ${entry.item}`); await refreshAll(); } else statusMsg('Failed to update entry',true);
         };
-        del.onclick = async ()=>{
-          if(!confirmDialog('Delete this log entry?')) return;
-          del.disabled=true;
-          try{
-            const resp = await apiPOST({action:'delete', id:entry.id});
-            if(resp.ok){ toast(`Deleted ${entry.item}`); await refreshAll(); } else throw new Error();
-          }catch{ statusMsg('Failed to delete', true); }
-          finally{ del.disabled=false; }
+        del.onclick=async()=>{ if(!confirmDialog('Delete this log entry?')) return;
+          const resp=await apiPOST({action:'delete', id:entry.id});
+          if(resp.ok){ toast(`Deleted ${entry.item}`); await refreshAll(); } else statusMsg('Failed to delete',true);
         };
-
-        row.append(name, time, save, del);
-        list.appendChild(row);
+        actions.append(save, del); row.append(name, time, actions); list.appendChild(row);
       });
     }
 
-    // ---- Last + Buttons ----
+    // ---- Last Taken ----
     function renderLastPanel(){
       const list=document.getElementById('lastList'); list.innerHTML='';
-      (lastTaken||[]).forEach(({item, iso})=>{
-        const d=document.createElement('div'); d.textContent = `${item}: ${iso ? (fmtDate(new Date(iso))===fmtDate(new Date()) ? fmtTime(new Date(iso)) : fmtDate(new Date(iso))+' '+fmtTime(new Date(iso))) : '—'}`;
-        list.appendChild(d);
+      lastTaken.forEach(({item,iso})=>{
+        const div=document.createElement('div'); div.className='last-item';
+        div.textContent = `${item}: ${fmtLast(iso)}`;
+        list.appendChild(div);
       });
     }
 
-    function renderButtons(){
+    // ---- Buttons ----
+    function renderButtonsPanel(items){
       const panel=document.getElementById('buttonsPanel'); panel.innerHTML='';
-      (items||[]).forEach(item=>{
-        const btn=document.createElement('button'); btn.textContent=item; btn.title=item; btn.setAttribute('aria-label', item);
-        btn.onclick = async ()=>{
+      items.forEach(item=>{
+        const btn=document.createElement('button'); btn.textContent=item;
+        btn.onclick=async()=>{
           if(!confirmDialog(`Log "${item}" right now?`)) return;
-          btn.disabled=true;
-          try{
-            const now=new Date(); const iso=localISO(now);
-            const resp = await apiPOST({action:'log', item, ts: iso});
-            if(resp.ok){ toast(`Logged ${item} at ${fmtTime(now)}`); await refreshAll(); } else throw new Error();
-          }catch{ statusMsg('Failed to log', true); }
-          finally{ btn.disabled=false; }
+          const iso=localISO(new Date());
+          const resp=await apiPOST({action:'log', item, ts:iso});
+          if(resp.ok){ toast(`Logged ${item}`); await refreshAll(); } else statusMsg('Failed to log',true);
         };
         panel.appendChild(btn);
       });
     }
 
-    // ---- Refresh all ----
+    // ---- Refresh All ----
     async function refreshAll(){
       const y=currentMonth.getFullYear(), m=currentMonth.getMonth();
       const start=new Date(y,m,1), end=new Date(y,m+1,0,23,59,59);
       try{
-        const itemsResp = await apiGET('action=items'); if(itemsResp.ok) items = itemsResp.items || [];
-        renderButtons();
-
-        const lastResp = await apiGET('action=last'); if(lastResp.ok) lastTaken = lastResp.data || [];
-        renderLastPanel();
-
-        const listResp = await apiGET(`action=list&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
-        byDay = {};
-        if(listResp.ok){
-          (listResp.data||[]).forEach(e=>{
-            const ds = fmtDate(new Date(e.iso));
-            (byDay[ds] ||= []).push(e);
-          });
-        }
+        const itemsResp=await apiGET('action=items'); if(itemsResp.ok) renderButtonsPanel(itemsResp.items||[]);
+        const lastResp=await apiGET('action=last');  if(lastResp.ok)  lastTaken = lastResp.data||[]; renderLastPanel();
+        const listResp=await apiGET(`action=list&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+        calendarData={};
+        if(listResp.ok){ (listResp.data||[]).forEach(e=>{ const ds=fmtDate(new Date(e.iso)); (calendarData[ds] ||= []).push(e); }); }
         renderCalendar(); renderEntriesPanel();
-      }catch{ statusMsg('Network or API error', true); }
+      }catch(e){ statusMsg('Network or API error', true); }
     }
 
     // ---- Init ----
-    window.addEventListener('DOMContentLoaded', ()=>{
+    window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('prevMonthBtn').onclick = prevMonth;
       document.getElementById('nextMonthBtn').onclick = nextMonth;
       refreshAll();
-      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('service-worker.js'); }
+      if ('serviceWorker' in navigator) {
+        // keep relative so it works under /peps/
+        navigator.serviceWorker.register('./service-worker.js');
+      }
     });
   </script>
 </body>
